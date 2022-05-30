@@ -218,7 +218,7 @@ class Normalize(object):
         Only set to scale std. Otherwise leave untouched.
 
     """
-    def __init__(self, masked=True, eps=1e-5):
+    def __init__(self, masked=True, eps=0.0):
         self.masked = masked
         self.eps = eps
 
@@ -268,7 +268,7 @@ class IntensityRescale:
 
     """
 
-    def __init__(self, masked=True, on_gpu=False, eps=1e-4):
+    def __init__(self, masked=True, on_gpu=False, eps=0.0):
         """Initialization process."""
 
         self.masked = masked
