@@ -14,8 +14,8 @@ def weights_init(m, func=init.kaiming_uniform_, debug_print=False):
     -------
     m:  Weight initialized layer.
     """ 
-    if hasattr(m, 'weight'):
-        func(m.weight.data)
+    if hasattr(m, 'weight') and 'BatchNorm' not in m.__class__.__name__:
+        func(m.weight)
         if m.bias is not None:
             init.constant_(m.bias, 0.001)
     # for layers like nn.BatchNorm3d, just reset the parameters

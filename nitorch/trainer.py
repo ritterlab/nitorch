@@ -456,9 +456,9 @@ class Trainer:
                 plt.plot(report["train_metrics"][metric_name])
                 plt.plot(report["val_metrics"][metric_name])
                 plt.legend(["Train", "Val"])
-                plt.title(metric_name)
+                plt.title('Training curve: '+metric_name.replace('_',' ').title())
                 if save_fig_path:
-                    plt.savefig(save_fig_path+f"training_{metric_name.replace(' ','')[:3]}.jpg")
+                    plt.savefig(save_fig_path+f"training_curve_{metric_name.replace(' ','')[:3]}.jpg")
                     plt.close()
                 else:
                     plt.show()
