@@ -305,7 +305,6 @@ class Trainer:
                         outputs = self.training_time_callback(
                             inputs, labels, i, epoch)
                     else:
-                        # forward + backward + optimize
                         outputs = self.model(inputs)
                         
                     loss = self.criterion(outputs, labels)
@@ -462,11 +461,11 @@ class Trainer:
                     plt.close()
                 else:
                     plt.show()
+                    
 
     def evaluate_model(
             self,
             val_loader,
-            additional_gpu=None,
             metrics=[],
             inputs_key="image",
             labels_key="label",
@@ -479,8 +478,6 @@ class Trainer:
         ----------
         val_loader: torch.utils.data.DataLoader
             The data which should be used for model evaluation.
-        additional_gpu
-            Lets you evaluate on a different GPU than training was performed on. Default: None
         metrics
             Metrics to assess. Default: []
         inputs_key, labels_key
@@ -494,20 +491,23 @@ class Trainer:
         """
         self.model.eval()
 
-        # Todo: device is not used. It is still used self.device!
-        if additional_gpu is not None:
-            device = additional_gpu
-        else:
-            device = self.device
-
         running_loss = []
         all_outputs = []
         all_labels = []
+        data_extras = {}
 
         with torch.no_grad():
             for i, data in enumerate(val_loader):
                 inputs, labels = self.arrange_data(data, inputs_key, labels_key)
-
+                # if the dataloader returns more info, then store and return them too
+                if return_results and len(data)>2:
+                    if i==0: # create entries in data_extras
+                        data_extras = {k:[data[k]] for k in data.keys() if k not in [inputs_key, labels_key]}
+                    else:
+                        for k in data.keys():
+                            if k not in [inputs_key, labels_key]:
+                                data_extras[k].append(data[k])
+                        
                 if self.training_time_callback:
                     outputs = self.training_time_callback(
                         inputs, labels, 1, 1)
@@ -545,7 +545,7 @@ class Trainer:
             
         self.model.train()
         
-        if return_results: return all_outputs, all_labels, results
+        if return_results: return all_outputs, all_labels, results, data_extras
         
 
     def _estimate_and_report_metrics(

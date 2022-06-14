@@ -87,7 +87,6 @@ def binary_balanced_accuracy(y_true, y_pred):
         The binary balanced accuracy.
 
     """
-    y_true, y_pred = prepare_values(y_true, y_pred)
     spec = specificity(y_true, y_pred)
     sens = sensitivity(y_true, y_pred)
     return (spec + sens) / 2
