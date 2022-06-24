@@ -384,6 +384,7 @@ class Trainer:
                 callback(self, epoch=epoch)
         # End training
         return self.finish_training(epoch)
+    
 
     def finish_training(self, epoch):
         """End the training cyle, return a model and finish callbacks.
@@ -434,6 +435,7 @@ class Trainer:
                     "best_metric": self.best_metric}
                 )
 
+    
     def visualize_training(self, report, metrics=None, save_fig_path=""):
         """A function to vizualize model training.
 
@@ -502,11 +504,11 @@ class Trainer:
                 # if the dataloader returns more info, then store and return them too
                 if return_results and len(data)>2:
                     if i==0: # create entries in data_extras
-                        data_extras = {k:[data[k]] for k in data.keys() if k not in [inputs_key, labels_key]}
+                        data_extras = {k: data[k].numpy().tolist() for k in data.keys() if k not in [inputs_key, labels_key]}
                     else:
                         for k in data.keys():
                             if k not in [inputs_key, labels_key]:
-                                data_extras[k].append(data[k])
+                                data_extras[k].extend(data[k].numpy().tolist())
                         
                 if self.training_time_callback:
                     outputs = self.training_time_callback(
@@ -549,22 +551,16 @@ class Trainer:
         
 
     def _estimate_and_report_metrics(
-            self,
-            all_outputs,
-            all_labels,
-            running_loss,
-            metrics_dict,
-            phase,
+            self, all_outputs, all_labels,
+            running_loss, metrics_dict, phase,
             save_fig_path=""
     ):
         """ Function executed at the end of an epoch.
-
         Notes
         -----
             (a) calculate metrics
             (b) store results in respective report dicts
             (c) report metrics
-
         """
 
         # report execution time, only in training phase
