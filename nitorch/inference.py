@@ -43,7 +43,7 @@ def predict(
     elif prediction_type == "classification":
         all_preds, all_labels = multi_classif_inference(all_outputs, all_labels, criterion=criterion, **kwargs)
         
-    elif prediction_type in ["regression", "reconstruction", "variational"]:
+    elif prediction_type in ["regression", "reconstruction", "variational", "contrastive"]:
         # TODO: test different loss functions
         all_preds = all_outputs.data
     else:

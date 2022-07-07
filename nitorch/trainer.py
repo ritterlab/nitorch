@@ -449,6 +449,7 @@ class Trainer:
             A path to store figures in a pdf file. Default: "" (Do not plot to pdf)
 
         """
+        # TODO: if metric is empty print so
         for metric_name in report["train_metrics"].keys():
             # if metrics is not specified, plot everything, otherwise only plot the given metrics
             if metrics is None or metric_name.split(" ")[-1] in [m.__name__ for m in metrics]:
@@ -571,19 +572,22 @@ class Trainer:
 
         if isinstance(all_outputs[0], list):
             all_outputs = [torch.cat(out).float() for out in zip(*all_outputs)]
-            all_labels = [torch.cat(lbl).float() for lbl in zip(*all_labels)]
-            if not all([isinstance(metrics_per_task, list) for metrics_per_task in self.metrics]):
+            if self.multitask and not all([isinstance(metrics_per_task, list) for metrics_per_task in self.metrics]):
                 print("WARNING: You are doing multi-task training. You should provide metrics for each "
                       "sub-task as a list of lists but a single value is provided."
                       " No metrics will be calculated for secondary tasks")
                 self.metrics = [self.metrics] + [[] for _ in range(len(all_outputs))]
-            if not isinstance(self.prediction_type, list):
+            if self.multitask and not isinstance(self.prediction_type, list):
                 print("WARNING: In multi-task training, you should provide prediction_type "
                       " for each sub-task as a list but a single value is provided. Assuming the secondary tasks have"
                       " the same prediction_type '{}'!".format(self.prediction_type))
                 self.prediction_type = [self.prediction_type for _ in range(len(all_outputs))]
         else:
             all_outputs = [torch.cat(all_outputs).float()]
+        
+        if isinstance(all_labels[0], list):
+            all_labels = [torch.cat(lbl).float() for lbl in zip(*all_labels)]
+        else:
             all_labels = [torch.cat(all_labels).float()]
 
         # add loss to metrics_dict
@@ -594,7 +598,18 @@ class Trainer:
             print("{} loss: {:.5f}".format(phase, loss), flush=True)
 
         # calculate other metrics and add to the metrics_dict for all tasks
-        for task_idx in range(len(all_outputs)):
+        if self.multitask:
+            for task_idx in range(len(all_outputs)):
+                # perform inference on the outputs
+                all_pred, all_label = predict(
+                    all_outputs[task_idx],
+                    all_labels[task_idx],
+                    self.prediction_type[task_idx],
+                    self._criterions[task_idx],
+                    class_threshold=self.class_threshold
+                )
+        else:
+            task_idx = 0
             # perform inference on the outputs
             all_pred, all_label = predict(
                 all_outputs[task_idx],
@@ -603,6 +618,7 @@ class Trainer:
                 self._criterions[task_idx],
                 class_threshold=self.class_threshold
             )
+            
             # If it is a multi-head training then append prefix            
             if task_idx == 0:
                 metric_prefix = ""
