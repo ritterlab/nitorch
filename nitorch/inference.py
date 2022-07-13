@@ -1,11 +1,11 @@
 import torch
 from torch import nn
-
+from nitorch.utils import to_numpy
 
 def predict(
         all_outputs,
         all_labels,
-        prediction_type,
+        task_type,
         criterion,
         **kwargs
 ):
@@ -17,8 +17,8 @@ def predict(
         All outputs of a forward process of a model.
     all_labels
         All labels of the corresponding inputs to the outputs.
-    prediction_type
-        Prediction type. "binary", "classification", "regression", "reconstruction" or "variational".
+    task_type
+        "classif_binary", "classif", "regression", or "other".
     criterion
         Criterion, e.g. "loss"-function. Could for example be "nn.BCEWithLogitsLoss".
     kwargs
@@ -34,88 +34,59 @@ def predict(
     Raises
     ------
     NotImplementedError
-        If `prediction_type` invalid.
+        If `task_type` invalid.
 
     """
-    if prediction_type == "binary":
-        all_preds = binary_classif_inference(all_outputs, criterion=criterion, **kwargs)
-
-    elif prediction_type == "classification":
-        all_preds, all_labels = multi_classif_inference(all_outputs, all_labels, criterion=criterion, **kwargs)
+    if task_type == "classif_binary":
+        all_preds, all_labels = classif_binary_inference(
+                                    all_outputs, all_labels, 
+                                    criterion=criterion, 
+                                    **kwargs)
         
-    elif prediction_type in ["regression", "reconstruction", "variational", "contrastive"]:
-        # TODO: test different loss functions
-        all_preds = all_outputs.data
+    elif task_type == "classif":
+        all_preds, all_labels = classif_inference(
+                                    all_outputs, all_labels, 
+                                    criterion=criterion, 
+                                    **kwargs)
+        
+    elif task_type in ["regression", "other"]:
+        all_preds = all_outputs
     else:
-        raise NotImplementedError
-
-    return all_preds, all_labels
-
-
-def binary_classif_inference(
-        all_outputs,
-        criterion,
-        **kwargs
-):
-    """Binary classification inference.
-
-    Parameters
-    ----------
-    all_outputs
-        All outputs of a forward process of a model.
-    criterion
-        Criterion, e.g. "loss"-function. Could for example be "nn.BCEWithLogitsLoss".
-    kwargs
-        Variable arguments.
-
-    Returns
-    -------
-    all_preds
-        All predictions.
-
-    """
-    if isinstance(criterion, nn.BCEWithLogitsLoss):
-        all_outputs = torch.sigmoid(all_outputs)
-
-    if kwargs["class_threshold"]:
-        class_threshold = kwargs["class_threshold"]
-    else:
-        class_threshold = 0.5
-    all_preds = (all_outputs.data >= class_threshold)
+        raise NotImplementedError(f"task_type={task_type} not supported currently in nitorch. Only ['classif_binary', 'classif', 'regression', or 'other'] supported..")
     
-    return all_preds
+    
+    return to_numpy(all_preds, all_labels)
 
 
-def multi_classif_inference(
+def classif_inference(
         all_outputs,
         all_labels,
         criterion,
         **kwargs
 ):
-    """Multi classification inference.
-
-    Parameters
-    ----------
-    all_outputs
-        All outputs of a forward process of a model.
-    all_labels
-        All labels of the corresponding inputs to the outputs.
-    criterion
-        Criterion, e.g. "loss"-function. Could for example be "nn.BCEWithLogitsLoss".
-    kwargs
-        Variable arguments.
-
-    Returns
-    -------
-    all_preds
-        All predictions.
-    all_labels
-        All labels.
-
-    """
-    all_preds = torch.argmax(all_outputs.data, 1)   
-    # convert the labels from one-hot vectors to class variables for metric calculations
-    if isinstance(criterion, (nn.BCELoss, nn.BCEWithLogitsLoss)):
-        all_labels = torch.argmax(all_labels.data, 1)
-    # TODO : Test other loss types like NLL
+    # get the class with the highest logit as the predicted class
+    all_preds = torch.argmax(all_outputs, 1)   
+    # if labels are one-hot vectors, convert them to class variables for metric calculations
+    if all_labels.ndim>1:
+        all_labels = torch.argmax(all_labels, 1)
     return all_preds, all_labels
+
+
+def classif_binary_inference(
+        all_outputs,
+        all_labels,
+        criterion,
+        **kwargs):
+    # check if it is binary classification
+    assert all_outputs.ndim==1, f"for binary classification ndims of output should be 1 but got {all_outputs.ndim}" 
+    # convert the outputs from logits to probability
+    if isinstance(criterion, nn.BCEWithLogitsLoss):
+        all_outputs = torch.sigmoid(all_outputs)
+
+    class_threshold = 0.5
+    if "class_threshold" in kwargs and kwargs["class_threshold"] is not None:
+        class_threshold = kwargs["class_threshold"]
+
+    all_preds = (all_outputs >= class_threshold)
+    return all_preds, all_labels
+

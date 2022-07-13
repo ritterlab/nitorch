@@ -39,46 +39,16 @@ class Trainer:
     device : int/torch.device
         The device to use for training. Must be integer or a torch.device object.
         By default, GPU with current node is used. Default: torch.device("cuda")
-    prediction_type : str
-        accepts one of ["binary", "classification", "regression", "reconstruction", "variational", "other"].
-        Default: "binary"
+    task_type : str
+        accepts one of ["classif_binary", "classif", "regression", "other"].
+        Default: "classif_binary"
     multitask : bool
         Enables multitask training. Default: False
     kwargs
         Other parameters to store.
 
-    Attributes
+    Useful Attributes
     ----------
-    model
-        Neural network to train.
-    criterion
-        The loss function.
-    optimizer
-        optimizer function.
-    scheduler
-        schedules the optimizer.
-    multitask : bool
-        Enables multitask training.
-    metrics
-        list of metrics to report. Default is None.
-        when multitask training = True,
-        metrics can be a list of lists such that len(metrics) =  number of tasks.
-        If not, metrics are calculated only for the first task.
-    prediction_type
-        accepts one of ["binary", "classification", "regression", "reconstruction", "variational", "other"].
-    callbacks
-        list of callbacks to execute at the end of training epochs. Default is None.
-    training_time_callback
-        a user-defined callback that executes the model.forward() and returns the output to the trainer.
-        This can be used to perform debug during train time, Visualize features,
-        call model.forward() with custom arguments, run multiple decoder networks etc. Default is None.
-    device : int/torch.device
-        The device to use for training. Must be integer or a torch.device object.
-        By default, GPU with current node is used.
-    class_threshold
-        Threshold on how to determine the class affiliation.
-    start_time
-        Time training started.
     val_metrics : dict
         Lists as many metrics as specified in 'metrics' for each validation epoch. Always has "loss" as entry.
     train_metrics : dict
@@ -87,6 +57,8 @@ class Trainer:
         Best validation metric.
     best_model
         Best model (hyperparameter settings) when 'best_metric' is archieved.
+    start_time
+        Time training started.
 
     Methods
     -------
@@ -110,7 +82,7 @@ class Trainer:
             callbacks=[],
             training_time_callback=None,
             device=torch.device("cuda"),
-            prediction_type="binary",
+            task_type="classif_binary",
             multitask=False,
             **kwargs
     ):
@@ -132,11 +104,11 @@ class Trainer:
         self.multitask = multitask
         if self.multitask:
             self.metrics = metrics
-            self.prediction_type = prediction_type
+            self.task_type = task_type
             self._criterions = criterion.loss_function
         else:
             self.metrics = [metrics]
-            self.prediction_type = [prediction_type]
+            self.task_type = [task_type]
             self._criterions = [criterion]
 
         self.callbacks = callbacks
@@ -149,17 +121,14 @@ class Trainer:
         else:
             raise ValueError("Device needs to be of type torch.device or \
                 integer.")
-        if "class_threshold" in kwargs.keys():
-            self.class_threshold = kwargs["class_threshold"]
-        else:
-            self.class_threshold = None
         self._stop_training = False
         self.start_time = None
         self.val_metrics = {"loss": []}
         self.train_metrics = {"loss": []}
         self.best_metric = None
         self.best_model = None
-
+        self.kwargs = kwargs
+        
     def arrange_data(
             self,
             data,
@@ -174,7 +143,7 @@ class Trainer:
 
         Attributes
         ----------
-        data : torch.utils.data.DataLoader
+        data : torch.utils.DataLoader
             DataLoader for the current set e.g. train, val, test.
         inputs_key : str
             In case the DataLoader outputs a named pair use this key for the 
@@ -227,9 +196,9 @@ class Trainer:
 
         Parameters
         ----------
-        train_loader : torch.utils.data.DataLoader
+        train_loader : torch.utils.DataLoader
             A pytorch Dataset iterator for training data.
-        val_loader : torch.utils.data.DataLoader
+        val_loader : torch.utils.DataLoader
             A pytorch Dataset iterator for validation data.
         inputs_key, labels_key
             The data returned by 'train_loader' and 'val_loader' can either be a dict of format
@@ -479,7 +448,7 @@ class Trainer:
 
         Parameters
         ----------
-        val_loader: torch.utils.data.DataLoader
+        val_loader: torch.utils.DataLoader
             The data which should be used for model evaluation.
         metrics
             Metrics to assess. Default: []
@@ -577,11 +546,11 @@ class Trainer:
                       "sub-task as a list of lists but a single value is provided."
                       " No metrics will be calculated for secondary tasks")
                 self.metrics = [self.metrics] + [[] for _ in range(len(all_outputs))]
-            if self.multitask and not isinstance(self.prediction_type, list):
-                print("WARNING: In multi-task training, you should provide prediction_type "
+            if self.multitask and not isinstance(self.task_type, list):
+                print("WARNING: In multi-task training, you should provide task_type "
                       " for each sub-task as a list but a single value is provided. Assuming the secondary tasks have"
-                      " the same prediction_type '{}'!".format(self.prediction_type))
-                self.prediction_type = [self.prediction_type for _ in range(len(all_outputs))]
+                      " the same task_type '{}'!".format(self.task_type))
+                self.task_type = [self.task_type for _ in range(len(all_outputs))]
         else:
             all_outputs = [torch.cat(all_outputs).float()]
         
@@ -604,26 +573,24 @@ class Trainer:
                 all_pred, all_label = predict(
                     all_outputs[task_idx],
                     all_labels[task_idx],
-                    self.prediction_type[task_idx],
+                    self.task_type[task_idx],
                     self._criterions[task_idx],
-                    class_threshold=self.class_threshold
-                )
+                    **self.kwargs
+                )            
+            # If it is a multi-head training then append prefix      
+            metric_prefix = "task{} ".format(task_idx + 1)
+            
         else:
             task_idx = 0
             # perform inference on the outputs
             all_pred, all_label = predict(
                 all_outputs[task_idx],
                 all_labels[task_idx],
-                self.prediction_type[task_idx],
+                self.task_type[task_idx],
                 self._criterions[task_idx],
-                class_threshold=self.class_threshold
+                **self.kwargs
             )
-            
-            # If it is a multi-head training then append prefix            
-            if task_idx == 0:
-                metric_prefix = ""
-            else:
-                metric_prefix = "task{} ".format(task_idx + 1)
+            metric_prefix = ""
 
             # report metrics
             for metric in self.metrics[task_idx]:
@@ -642,11 +609,9 @@ class Trainer:
                 else:
                     metrics_dict[metric_name] = [result]
 
-            # plot confusion graph if it is a binary classification
-            if phase == "eval" and self.prediction_type[task_idx] == "binary":
-                # todo: add x and y label description or use seaborn!
-                all_label = np.array([inp.cpu().numpy().item() for inp in all_label])
-                all_pred = np.array([inp.cpu().numpy().item() for inp in all_pred])
+            # plot confusion matrix if it is a binary classification
+            if phase == "eval" and self.task_type[task_idx] == "classif_binary":
+                # TODO: switch to seaborn
                 cm = confusion_matrix(all_label, all_pred)
                 plt.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
 

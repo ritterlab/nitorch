@@ -424,8 +424,8 @@ def main3():
         criterion,
         optimizer,
         metrics=metric,
-        prediction_type="binary",
-        device=torch.device("cpu")  # default device is "cuda", but for demonstration purposes CPU is sufficient!
+        task_type="classif_binary",
+        device=torch.cpu()  # default device is "cuda", but for demonstration purposes CPU is sufficient!
     )
 
     # simply run the trainer

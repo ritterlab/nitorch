@@ -4,6 +4,31 @@ from matplotlib.lines import Line2D
 import numpy as np
 
 
+def to_numpy(*torch_arrs):
+    """Converts the given torch Tensors to numpy.ndarray for metric calculations.
+
+    Parameters
+    ----------
+    *torch_arrs : one or multiple torch.tensors
+        Either a CPU or GPU tensor.
+
+    Returns
+    -------
+    *numpy_arrs : numpy.ndarray
+        Numpy.ndarray of the input tensor data.
+    """
+    out = []
+    for torch_arr in torch_arrs:
+        if isinstance(torch_arr, torch.Tensor):
+            if torch_arr.is_cuda: 
+                out.append(torch_arr.cpu().detach().numpy())
+            else:
+                out.append(torch_arr.detach().numpy())
+        else:
+            out.append(torch_arr)
+    return out
+
+
 def dataset_length(data_loader):
     """Return the full length of the dataset from the DataLoader alone.
 
@@ -101,7 +126,8 @@ def plot_grad_flow(named_parameters):
     plt.grid(True)
     plt.legend([Line2D([0], [0], color="c", lw=4),
                 Line2D([0], [0], color="b", lw=4),
-                Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
+                Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'],
+              loc='upper left')
     
 
 def is_bad_grad(grad_output):

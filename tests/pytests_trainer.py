@@ -126,7 +126,7 @@ if __name__ == "__main__":
     metrics=metrics,
     # callbacks=callbacks,
     device=device,
-    prediction_type="binary")
+    task_type="classif_binary")
 
     # train model and store results
     net, report = trainer.train_model(
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     metrics=metrics,
     # callbacks=callbacks,
     device=device,
-    prediction_type="classification")
+    task_type="classif")
 
     # train model and store results
     net, report = trainer.train_model(

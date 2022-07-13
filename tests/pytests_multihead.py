@@ -143,7 +143,7 @@ if __name__ == "__main__":
         optimizer,
         metrics=metrics,
         device=device,
-        prediction_type=["classification", "regression"],
+        task_type=["classif", "regression"],
         multitask=True)
 
     # train model and store results
