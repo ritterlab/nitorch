@@ -190,7 +190,7 @@ class Trainer:
             num_epochs=25,
             show_train_steps=None,
             show_validation_epochs=1,
-            store_grads=False
+            show_grad_flow=False
     ):
         """Main function to train a network for one epoch.
 
@@ -211,8 +211,9 @@ class Trainer:
             The number of training steps to show. Default: None
         show_validation_epochs
             Specifies every 'x' validation epoch to show. If set to 1 all epochs are shown. Default: 1
-        store_grads
-            Allows visualization of the gradient flow through the model during training. Default: False.
+        show_grad_flow
+            Visualize the gradient flow through the model during training. 
+            If a path is given the gradient flow plot is saved at that path instead. Default: False.
 
         Returns
         -------
@@ -250,7 +251,8 @@ class Trainer:
         self.start_time = time.time()
         self.best_metric = None
         self.best_model = None
-
+        if show_grad_flow: watch_grads = WatchGrads(self.model.named_parameters())
+        
         for epoch in range(num_epochs):
             # if early stopping is on, check if stop signal is switched on
             if self._stop_training:
@@ -292,9 +294,9 @@ class Trainer:
                         # store the outputs and labels for computing metrics later     
                         all_outputs.append(outputs)
                         all_labels.append(labels)
-                        # allows visualization of the gradient flow through the model during training
-                        if store_grads:
-                            plot_grad_flow(self.model.named_parameters())
+                        # store the the grad flowing through the model layers
+                        # during training for visualization later
+                        if show_grad_flow: watch_grads.store(self.model.named_parameters())
 
                 # <end-of-training-cycle-loop>
                 # at the end of an epoch, calculate metrics, report them and
@@ -351,7 +353,11 @@ class Trainer:
             # <end-of-all-epochs-loop>
             for callback in self.callbacks:
                 callback(self, epoch=epoch)
+                
         # End training
+        if show_grad_flow: 
+            save_fig_path = show_grad_flow if isinstance(show_grad_flow,str) else ''
+            watch_grads.plot(save_fig_path=save_fig_path)
         return self.finish_training(epoch)
     
 
