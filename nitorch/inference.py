@@ -37,13 +37,16 @@ def predict(
         If `task_type` invalid.
 
     """
-    if task_type == "classif_binary":
+    all_outputs = all_outputs.squeeze()
+    if (task_type=="classif_binary") and (all_outputs.ndim==1):
         all_preds, all_labels = classif_binary_inference(
                                     all_outputs, all_labels, 
                                     criterion=criterion, 
                                     **kwargs)
         
-    elif task_type == "classif":
+    elif (task_type=="classif") or (task_type=="classif_binary" and all_outputs.ndim==2):
+        # users might also use binary classification with 2 class outputs instead
+        # which should be handled same as multi class classification infernece
         all_preds, all_labels = classif_inference(
                                     all_outputs, all_labels, 
                                     criterion=criterion, 
@@ -63,12 +66,15 @@ def classif_inference(
         all_labels,
         criterion,
         **kwargs
-):
+):    
+    print('[D]',all_outputs.shape, all_labels.shape, )
+
     # get the class with the highest logit as the predicted class
     all_preds = torch.argmax(all_outputs, 1)   
     # if labels are one-hot vectors, convert them to class variables for metric calculations
     if all_labels.ndim>1:
         all_labels = torch.argmax(all_labels, 1)
+    print('[D]2',all_outputs.shape, all_labels.shape, )
     return all_preds, all_labels
 
 
@@ -77,8 +83,6 @@ def classif_binary_inference(
         all_labels,
         criterion,
         **kwargs):
-    # check if it is binary classification
-    assert all_outputs.ndim==1, f"for binary classification ndims of output should be 1 but got {all_outputs.ndim}" 
     # convert the outputs from logits to probability
     if isinstance(criterion, nn.BCEWithLogitsLoss):
         all_outputs = torch.sigmoid(all_outputs)

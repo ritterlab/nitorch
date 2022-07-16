@@ -121,7 +121,6 @@ class WatchGrads:
     
     
     def plot(self, save_fig_path=''):
-        print('[D] Frad', save_fig_path)
         f, ax = plt.subplots(figsize=(
             round(self.N**(1/2))+1,4+self.N//15), 
                              constrained_layout=True) 
@@ -146,9 +145,7 @@ class WatchGrads:
        
         if save_fig_path:
             plt.savefig(save_fig_path+f"grad_flow.jpg")
-            plt.close()
-        else:
-            plt.show()
+        plt.show()
     
     
 

@@ -160,15 +160,15 @@ class Trainer:
             torch.Tensor of all labels or list of torch.Tensors
         """
         try:
-            inputs, labels = data[inputs_key], data[labels_key]
-        except TypeError:
-            # if data does not come in dictionary, assume
-            # that data is ordered like [input, label]
-            try:
+            if isinstance(data, dict):
+                inputs, labels = data[inputs_key], data[labels_key]
+            else:
+                # if data does not come in dictionary, assume
+                # that data is ordered like [input, label]
                 inputs, labels = data[0], data[1]
-            except TypeError:
-                raise TypeError("Data not in correct \
-                 sequence format.")
+        except TypeError:
+            raise TypeError("Data returned from the dataloaders \
+              is not in the expected format.")
 
         # in case of multi-input or output create a list
         if isinstance(inputs, list):
@@ -251,7 +251,8 @@ class Trainer:
         self.start_time = time.time()
         self.best_metric = None
         self.best_model = None
-        if show_grad_flow: watch_grads = WatchGrads(self.model.named_parameters())
+        if show_grad_flow: 
+            watch_grads = WatchGrads(self.model.named_parameters())
         
         for epoch in range(num_epochs):
             # if early stopping is on, check if stop signal is switched on
@@ -296,7 +297,8 @@ class Trainer:
                         all_labels.append(labels)
                         # store the the grad flowing through the model layers
                         # during training for visualization later
-                        if show_grad_flow: watch_grads.store(self.model.named_parameters())
+                        if show_grad_flow:
+                            watch_grads.store(self.model.named_parameters())
 
                 # <end-of-training-cycle-loop>
                 # at the end of an epoch, calculate metrics, report them and
@@ -596,7 +598,7 @@ class Trainer:
                 self._criterions[task_idx],
                 **self.kwargs
             )
-            metric_prefix = ""
+            metric_prefix = ''
 
             # report metrics
             for metric in self.metrics[task_idx]:
